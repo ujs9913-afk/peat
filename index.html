@@ -36,6 +36,11 @@
       align-items: center;
       justify-content: center;
       position: relative;
+      outline: none;
+    }
+    .photo-box:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
     }
     .photo-box img {
       width: 100%;
@@ -55,7 +60,7 @@
 </head>
 <body class="min-h-screen pb-12">
 
-  <!-- 1. 전체 화면 차단 팝업 모달 (업로드 완료 시까지 타 작업 완벽 차단) -->
+  <!-- 전체 화면 차단 모달 -->
   <div id="blockingModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-900/65 backdrop-blur-sm select-none" style="pointer-events: auto;">
     <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-xs w-full mx-4 flex flex-col items-center text-center border border-slate-100">
       <div id="modalSpinner" class="w-14 h-14 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
@@ -69,7 +74,7 @@
     </div>
   </div>
 
-  <!-- 2. 이미지 확대 보기 모달 -->
+  <!-- 이미지 확대 라이트박스 모달 -->
   <div id="lightboxModal" class="fixed inset-0 z-[9000] hidden items-center justify-center bg-black/80 p-4" onclick="closeLightbox()">
     <div class="max-w-3xl w-full flex flex-col items-center">
       <img id="lightboxImg" src="" alt="확대 사진" class="max-h-[80vh] w-auto rounded-lg shadow-2xl border border-white/20">
@@ -77,11 +82,10 @@
     </div>
   </div>
 
-  <!-- 3. 상단 고정 헤더 -->
+  <!-- 상단 헤더 -->
   <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
     <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        
         <div class="flex items-center justify-between">
           <div>
             <h1 class="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2">
@@ -95,7 +99,6 @@
           </button>
         </div>
 
-        <!-- 날짜 및 끼니 선택 컨트롤 -->
         <div class="flex flex-wrap items-center gap-2 sm:gap-3">
           <div class="flex items-center bg-slate-100 rounded-lg px-2.5 py-1.5 border border-slate-200">
             <label for="datePicker" class="text-xs font-bold text-slate-600 mr-2">일자</label>
@@ -103,47 +106,31 @@
           </div>
 
           <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
-            <button type="button" onclick="setMealFilter('ALL')" id="tab_ALL" class="meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md bg-blue-600 text-white shadow-sm transition">
-              전체 한눈에
-            </button>
-            <button type="button" onclick="setMealFilter('아침')" id="tab_아침" class="meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">
-              아침
-            </button>
-            <button type="button" onclick="setMealFilter('점심')" id="tab_점심" class="meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">
-              점심
-            </button>
-            <button type="button" onclick="setMealFilter('저녁')" id="tab_저녁" class="meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">
-              저녁
-            </button>
+            <button type="button" onclick="setMealFilter('ALL')" id="tab_ALL" class="meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md bg-blue-600 text-white shadow-sm transition">전체 한눈에</button>
+            <button type="button" onclick="setMealFilter('아침')" id="tab_아침" class="meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">아침</button>
+            <button type="button" onclick="setMealFilter('점심')" id="tab_점심" class="meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">점심</button>
+            <button type="button" onclick="setMealFilter('저녁')" id="tab_저녁" class="meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">저녁</button>
           </div>
 
           <button onclick="loadDashboardData()" class="hidden md:inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition">
             새로고침
           </button>
         </div>
-
       </div>
     </div>
   </header>
 
-  <!-- 4. 본문 영역 -->
   <main class="max-w-7xl mx-auto px-2 sm:px-6 pt-4 space-y-6">
-    <!-- URL 미설정 안내 배너 -->
     <div id="apiWarningBanner" class="hidden bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-xl text-xs sm:text-sm font-medium">
-      ⚠️ <strong>연동 설정 안내:</strong> <code>index.html</code> 코드 하단의 <code>GAS_WEB_APP_URL</code> 변수에 구글 Apps Script 웹앱 배포 URL을 입력해 주세요. (현재는 화면 확인용 데모 모드로 표시됩니다.)
+      ⚠️ <strong>연동 설정 안내:</strong> <code>index.html</code> 하단의 <code>GAS_WEB_APP_URL</code> 변수에 Apps Script 웹앱 배포 URL을 입력해 주세요.
     </div>
 
-    <!-- 자동완성 datalist 영역 -->
     <div id="datalistContainer"></div>
-
-    <!-- 비교 테이블 렌더링 영역 -->
     <div id="tablesContainer" class="space-y-8"></div>
   </main>
 
   <script>
-    // =========================================================================
-    // [필수 입력] Apps Script에서 배포한 웹앱 URL(https://script.google.com/.../exec)을 입력하세요.
-    // =========================================================================
+    // [필수 입력] 배포한 GAS 웹앱 URL을 입력하세요.
     const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwCMesEklXuPVC4hVTiNzqeM63G-wFxWDqCcTLq6DpnMY5A2r8qaThlIAI6gzc79jlxqg/exec';
 
     const DEFAULT_CATEGORIES = {
@@ -153,53 +140,30 @@
     };
 
     let currentMealFilter = 'ALL';
-    let dashboardState = {
-      date: '',
-      masterList: [],
-      records: { '아침': [], '점심': [], '저녁': [] }
-    };
+    let dashboardState = { date: '', masterList: [], records: { '아침': [], '점심': [], '저녁': [] } };
 
     const MEAL_ORDER = ['아침', '점심', '저녁'];
-    const MEAL_BADGE_STYLES = {
-      '아침': 'bg-amber-500 text-white',
-      '점심': 'bg-emerald-600 text-white',
-      '저녁': 'bg-indigo-600 text-white'
-    };
+    const MEAL_BADGE_STYLES = { '아침': 'bg-amber-500 text-white', '점심': 'bg-emerald-600 text-white', '저녁': 'bg-indigo-600 text-white' };
 
     window.addEventListener('DOMContentLoaded', () => {
       const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      document.getElementById('datePicker').value = `${yyyy}-${mm}-${dd}`;
+      document.getElementById('datePicker').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       loadDashboardData();
     });
 
-    /**
-     * GAS 백엔드 API 호출 헬퍼 (CORS 방지를 위해 text/plain POST 사용)
-     */
     async function callGasApi(payload) {
       const response = await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8'
-        },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload),
         redirect: 'follow'
       });
-      if (!response.ok) {
-        throw new Error(`HTTP 오류 (상태 코드: ${response.status})`);
-      }
+      if (!response.ok) throw new Error(`HTTP 오류 (${response.status})`);
       const result = await response.json();
-      if (!result.success) {
-        throw new Error(result.error || '서버 처리 중 오류가 발생했습니다.');
-      }
+      if (!result.success) throw new Error(result.error || '서버 오류 발생');
       return result;
     }
 
-    /**
-     * 차단 모달 상태 제어
-     */
     function setBlockingModal(mode, customMessage) {
       const modal = document.getElementById('blockingModal');
       const spinner = document.getElementById('modalSpinner');
@@ -208,54 +172,38 @@
       const subText = document.getElementById('modalSubText');
 
       if (mode === 'hide') {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
+        modal.classList.add('hidden'); modal.classList.remove('flex');
         document.body.classList.remove('modal-active');
         return;
       }
-
       document.body.classList.add('modal-active');
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
+      modal.classList.remove('hidden'); modal.classList.add('flex');
 
       if (mode === 'loading') {
-        spinner.classList.remove('hidden');
-        check.classList.add('hidden');
-        check.classList.remove('flex');
+        spinner.classList.remove('hidden'); check.classList.add('hidden'); check.classList.remove('flex');
         text.textContent = customMessage || '저장중...';
         subText.textContent = '완료될 때까지 다른 창을 누를 수 없습니다.';
       } else if (mode === 'success') {
-        spinner.classList.add('hidden');
-        check.classList.remove('hidden');
-        check.classList.add('flex');
+        spinner.classList.add('hidden'); check.classList.remove('hidden'); check.classList.add('flex');
         text.textContent = customMessage || '완료되었습니다!';
         subText.textContent = '스프레드시트에 안전하게 반영되었습니다.';
       }
     }
 
-    /**
-     * 끼니 탭 필터 변경
-     */
     function setMealFilter(filter) {
       currentMealFilter = filter;
       document.querySelectorAll('.meal-tab').forEach(btn => {
         btn.className = 'meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition';
       });
       const activeBtn = document.getElementById(`tab_${filter}`);
-      if (activeBtn) {
-        activeBtn.className = 'meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md bg-blue-600 text-white shadow-sm transition';
-      }
+      if (activeBtn) activeBtn.className = 'meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md bg-blue-600 text-white shadow-sm transition';
       renderTables();
     }
 
-    /**
-     * 날짜별 데이터 불러오기
-     */
     async function loadDashboardData() {
       const dateStr = document.getElementById('datePicker').value;
       if (!dateStr) return;
 
-      // URL 미설정 시 데모 레이아웃 즉시 표시
       if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('여기에_배포한')) {
         document.getElementById('apiWarningBanner').classList.remove('hidden');
         initLocalDemoData(dateStr);
@@ -268,65 +216,41 @@
       setBlockingModal('loading', '데이터 불러오는 중...');
 
       try {
-        const res = await callGasApi({
-          action: 'getDashboardData',
-          date: dateStr
-        });
+        const res = await callGasApi({ action: 'getDashboardData', date: dateStr });
         dashboardState = res.data;
         buildCategoryDatalists(dashboardState.masterList || []);
         renderTables();
         setBlockingModal('hide');
       } catch (err) {
         setBlockingModal('hide');
-        alert('데이터 조회 실패: ' + err.message);
+        alert('조회 실패: ' + err.message);
       }
     }
 
-    /**
-     * URL 연결 전 레이아웃 확인용 초기 데모 데이터
-     */
     function initLocalDemoData(dateStr) {
       dashboardState.date = dateStr;
-      dashboardState.masterList = [
-        { category: '김밥', menuName: '참치마요김밥', appPhotoUrl: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=400&q=80' },
-        { category: '샌드위치', menuName: '클럽하프샌드위치', appPhotoUrl: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=400&q=80' }
-      ];
+      dashboardState.masterList = [];
       MEAL_ORDER.forEach(meal => {
         dashboardState.records[meal] = DEFAULT_CATEGORIES[meal].map(cat => ({
-          meal: meal,
-          category: cat,
-          menuName: '',
-          appPhotoUrl: '',
-          r3Url: '',
-          r4Url: '',
-          r5Url: ''
+          meal: meal, category: cat, menuName: '', appPhotoUrl: '', r3Url: '', r4Url: '', r5Url: ''
         }));
       });
     }
 
-    /**
-     * 카테고리별 자동완성 <datalist> 생성
-     */
     function buildCategoryDatalists(masterList) {
       const container = document.getElementById('datalistContainer');
       const allCategories = new Set();
-      MEAL_ORDER.forEach(meal => {
-        (dashboardState.records[meal] || []).forEach(r => allCategories.add(r.category));
-      });
+      MEAL_ORDER.forEach(meal => (dashboardState.records[meal] || []).forEach(r => allCategories.add(r.category)));
 
       let html = '';
       allCategories.forEach(cat => {
         const listId = getDatalistId(cat);
-        const matchedItems = masterList.filter(item => item.category === cat);
-        const itemsToRender = matchedItems.length > 0 ? matchedItems : masterList;
-
+        const matched = masterList.filter(item => item.category === cat);
+        const items = matched.length > 0 ? matched : masterList;
         html += `<datalist id="${listId}">`;
-        itemsToRender.forEach(item => {
-          html += `<option value="${escapeHtml(item.menuName)}">${escapeHtml(item.category)}</option>`;
-        });
+        items.forEach(item => { html += `<option value="${escapeHtml(item.menuName)}">${escapeHtml(item.category)}</option>`; });
         html += `</datalist>`;
       });
-
       container.innerHTML = html;
     }
 
@@ -334,9 +258,6 @@
       return 'dl_' + category.replace(/[^a-zA-Z0-9가-힣]/g, '_');
     }
 
-    /**
-     * 비교 테이블 렌더링
-     */
     function renderTables() {
       const container = document.getElementById('tablesContainer');
       const mealsToShow = currentMealFilter === 'ALL' ? MEAL_ORDER : [currentMealFilter];
@@ -345,42 +266,32 @@
       mealsToShow.forEach(meal => {
         const rows = dashboardState.records[meal] || [];
         const badgeStyle = MEAL_BADGE_STYLES[meal] || 'bg-slate-700 text-white';
-
-        const totalCount = rows.length;
-        const r3Done = rows.filter(r => r.r3Url).length;
-        const r4Done = rows.filter(r => r.r4Url).length;
-        const r5Done = rows.filter(r => r.r5Url).length;
+        const total = rows.length;
+        const r3 = rows.filter(r => r.r3Url).length;
+        const r4 = rows.filter(r => r.r4Url).length;
+        const r5 = rows.filter(r => r.r5Url).length;
 
         html += `
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div class="px-4 py-3 bg-slate-800 text-white flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2.5">
               <span class="px-2.5 py-0.5 rounded-md text-xs font-extrabold ${badgeStyle}">${meal}</span>
-              <h2 class="text-base font-bold">${dashboardState.date} ${meal} 메뉴 비교표 (${totalCount}종)</h2>
+              <h2 class="text-base font-bold">${dashboardState.date} ${meal} 메뉴 비교표 (${total}종)</h2>
             </div>
             <div class="flex items-center gap-3 text-xs text-slate-300">
-              <span>R3: <strong class="text-white">${r3Done}/${totalCount}</strong></span>
-              <span>R4: <strong class="text-white">${r4Done}/${totalCount}</strong></span>
-              <span>R5: <strong class="text-white">${r5Done}/${totalCount}</strong></span>
+              <span>R3: <strong class="text-white">${r3}/${total}</strong></span>
+              <span>R4: <strong class="text-white">${r4}/${total}</strong></span>
+              <span>R5: <strong class="text-white">${r5}/${total}</strong></span>
             </div>
           </div>
-
           <div class="overflow-x-auto">
             <table class="w-full border-collapse table-fixed min-w-[780px]">
               <thead>
                 <tr class="bg-slate-100 border-b border-slate-200 text-slate-700 text-xs sm:text-sm font-bold">
-                  <th class="sticky-col-header bg-slate-100 w-1/4 p-3 text-left border-r border-slate-200">
-                    1열 · 어플 기준 메뉴
-                  </th>
-                  <th class="w-1/4 p-3 text-center border-r border-slate-200">
-                    2열 · R3 사업장 실물
-                  </th>
-                  <th class="w-1/4 p-3 text-center border-r border-slate-200">
-                    3열 · R4 사업장 실물
-                  </th>
-                  <th class="w-1/4 p-3 text-center">
-                    4열 · R5 사업장 실물
-                  </th>
+                  <th class="sticky-col-header bg-slate-100 w-1/4 p-3 text-left border-r border-slate-200">1열 · 어플 기준 메뉴 (사진 업로드 가능)</th>
+                  <th class="w-1/4 p-3 text-center border-r border-slate-200">2열 · R3 사업장 실물</th>
+                  <th class="w-1/4 p-3 text-center border-r border-slate-200">3열 · R4 사업장 실물</th>
+                  <th class="w-1/4 p-3 text-center">4열 · R5 사업장 실물</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200 text-sm">
@@ -390,23 +301,21 @@
           </div>
         </section>`;
       });
-
       container.innerHTML = html;
     }
 
     function renderTableRow(meal, row, idx) {
       const rowKey = `${meal}_${idx}`;
       const datalistId = getDatalistId(row.category);
+      const hasAppPhoto = Boolean(row.appPhotoUrl);
 
       return `
       <tr class="hover:bg-slate-50/60 transition align-top">
-        <!-- 1열: 어플 기준 메뉴 -->
+        <!-- 1열: 어플 기준 메뉴 및 사진 업로드 -->
         <td class="sticky-col p-3 border-r border-slate-200 align-top">
           <div class="flex items-center justify-between mb-1.5">
-            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-800 border border-slate-300">
-              ${escapeHtml(row.category)}
-            </span>
-            <span class="text-[11px] text-slate-400">기준메뉴</span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-800 border border-slate-300">${escapeHtml(row.category)}</span>
+            <span class="text-[11px] text-blue-600 font-semibold">어플 기준</span>
           </div>
 
           <div class="relative mb-2">
@@ -415,15 +324,28 @@
               list="${datalistId}"
               id="input_${rowKey}"
               value="${escapeHtml(row.menuName)}"
-              placeholder="메뉴명 타이핑/선택..."
-              onchange="handleMenuNameChange('${meal}', '${escapeJs(row.category)}', '${rowKey}')"
-              class="w-full px-2.5 py-1.5 text-xs sm:text-sm font-semibold bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="메뉴명 타이핑..."
+              onchange="handleMenuChange('${meal}', '${escapeJs(row.category)}', '${rowKey}')"
+              class="w-full px-2.5 py-1.5 text-xs sm:text-sm font-semibold bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
-          <div class="photo-box" id="appPhotoBox_${rowKey}">
-            ${renderPhotoContent(row.appPhotoUrl, `${meal} [${row.category}] ${row.menuName || ''} (어플 기준)`, '메뉴 선택 시 어플 사진 자동 연동')}
+          <!-- 1열 사진 박스 (Ctrl+V 붙여넣기 기능 포함) -->
+          <div 
+            class="photo-box mb-2" 
+            id="appPhotoBox_${rowKey}"
+            tabindex="0"
+            onpaste="handlePastePhoto(event, '${meal}', '${escapeJs(row.category)}', '${rowKey}')"
+            title="마우스 클릭 후 Ctrl+V로 복사한 이미지를 붙여넣을 수 있습니다"
+          >
+            ${renderPhotoContent(row.appPhotoUrl, `${meal} [${row.category}] 어플 기준`, '사진 업로드 또는 Ctrl+V 붙여넣기')}
           </div>
+
+          <label class="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold cursor-pointer transition shadow-sm ${hasAppPhoto ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-blue-600 hover:bg-blue-700 text-white'}">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <span>${hasAppPhoto ? '기준 사진 변경' : '기준 사진 업로드'}</span>
+            <input type="file" accept="image/*" class="hidden" onchange="handleAppFileSelect(event, '${meal}', '${escapeJs(row.category)}', '${rowKey}')" />
+          </label>
         </td>
 
         <!-- 2~4열: R3, R4, R5 사업장 -->
@@ -436,123 +358,135 @@
     function renderSiteCell(meal, row, site, photoUrl, rowKey) {
       const cellId = `${site}_${rowKey}`;
       const hasPhoto = Boolean(photoUrl);
-
       return `
       <td class="p-3 border-r border-slate-200 last:border-r-0 align-top">
         <div class="flex items-center justify-between mb-2">
           <span class="text-xs font-extrabold text-slate-700">${site} 사업장</span>
-          <span id="badge_${cellId}" class="text-[11px] font-semibold px-1.5 py-0.5 rounded ${hasPhoto ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}">
-            ${hasPhoto ? '등록완료' : '미등록'}
-          </span>
+          <span class="text-[11px] font-semibold px-1.5 py-0.5 rounded ${hasPhoto ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}">${hasPhoto ? '등록완료' : '미등록'}</span>
         </div>
-
-        <div class="photo-box mb-2" id="photoBox_${cellId}">
-          ${renderPhotoContent(photoUrl, `${meal} [${row.category}] ${row.menuName || ''} (${site} 실물)`, `${site} 사진을 업로드하세요`)}
+        <div class="photo-box mb-2">
+          ${renderPhotoContent(photoUrl, `${meal} [${row.category}] ${site} 실물`, `${site} 사진 업로드`)}
         </div>
-
         <label class="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold cursor-pointer transition shadow-sm ${hasPhoto ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-blue-600 hover:bg-blue-700 text-white'}">
-          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-          </svg>
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
           <span>${hasPhoto ? '사진 재등록' : '사진 업로드'}</span>
-          <input
-            type="file"
-            accept="image/*"
-            class="hidden"
-            onchange="handleFileSelect(event, '${meal}', '${escapeJs(row.category)}', '${site}', '${rowKey}')"
-          />
+          <input type="file" accept="image/*" class="hidden" onchange="handleFileSelect(event, '${meal}', '${escapeJs(row.category)}', '${site}', '${rowKey}')" />
         </label>
       </td>`;
     }
 
     function renderPhotoContent(url, caption, emptyText) {
       if (url) {
-        return `<img src="${escapeHtml(url)}" alt="${escapeHtml(caption)}" loading="lazy" onclick="openLightbox('${escapeJs(url)}', '${escapeJs(caption)}')" onerror="this.outerHTML='<div class=\\'text-xs text-rose-500 p-2 text-center\\'>이미지를 불러올 수 없습니다.<br>드라이브 공유 권한을 확인하세요.</div>'">`;
+        return `<img src="${escapeHtml(url)}" alt="${escapeHtml(caption)}" loading="lazy" onclick="openLightbox('${escapeJs(url)}', '${escapeJs(caption)}')" onerror="this.outerHTML='<div class=\\'text-xs text-rose-500 p-2 text-center\\'>이미지 로드 실패</div>'">`;
       }
-      return `<span class="text-xs text-slate-400 text-center px-3 leading-relaxed">${escapeHtml(emptyText)}</span>`;
+      return `<span class="text-xs text-slate-400 text-center px-2 leading-relaxed">${escapeHtml(emptyText)}</span>`;
     }
 
-    /**
-     * 1열 기준 메뉴명 변경 시 메뉴마스터 매칭 및 GAS API 저장
-     */
-    async function handleMenuNameChange(meal, category, rowKey) {
+    // 1열 메뉴명 변경 핸들러
+    async function handleMenuChange(meal, category, rowKey) {
       const inputEl = document.getElementById(`input_${rowKey}`);
       if (!inputEl) return;
       const menuName = inputEl.value.trim();
       const dateStr = document.getElementById('datePicker').value;
 
-      let localMatchedUrl = '';
-      const exactMatch = dashboardState.masterList.find(m => m.category === category && m.menuName === menuName)
-                      || dashboardState.masterList.find(m => m.menuName === menuName);
-      if (exactMatch) {
-        localMatchedUrl = exactMatch.appPhotoUrl;
-      }
-
-      if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('여기에_배포한')) {
-        const appBox = document.getElementById(`appPhotoBox_${rowKey}`);
-        if (appBox) {
-          appBox.innerHTML = renderPhotoContent(localMatchedUrl, `${meal} [${category}] ${menuName}`, '메뉴 선택 시 어플 사진 자동 연동');
-        }
-        return;
-      }
+      if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('여기에_배포한')) return;
 
       setBlockingModal('loading', '저장중...');
-
       try {
+        await callGasApi({ action: 'saveAppMenu', date: dateStr, meal: meal, category: category, menuName: menuName });
+        setBlockingModal('success', '완료되었습니다!');
+        setTimeout(() => setBlockingModal('hide'), 900);
+      } catch (err) {
+        setBlockingModal('hide');
+        alert('저장 실패: ' + err.message);
+      }
+    }
+
+    // 1열 사진 파일 업로드 핸들러
+    async function handleAppFileSelect(event, meal, category, rowKey) {
+      const file = event.target.files[0];
+      if (!file) return;
+      processAppPhotoUpload(file, meal, category, rowKey);
+      event.target.value = '';
+    }
+
+    // 1열 Ctrl+V 클립보드 붙여넣기 핸들러
+    async function handlePastePhoto(event, meal, category, rowKey) {
+      const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+      for (let item of items) {
+        if (item.type.indexOf('image') === 0) {
+          const file = item.getAsFile();
+          if (file) {
+            event.preventDefault();
+            processAppPhotoUpload(file, meal, category, rowKey);
+            break;
+          }
+        }
+      }
+    }
+
+    // 공통 1열 사진 업로드 및 리사이징 처리
+    async function processAppPhotoUpload(file, meal, category, rowKey) {
+      const dateStr = document.getElementById('datePicker').value;
+      const inputEl = document.getElementById(`input_${rowKey}`);
+      const menuName = inputEl ? inputEl.value.trim() : '';
+
+      setBlockingModal('loading', '저장중...');
+      try {
+        const resizedBase64 = await resizeImageTo800px(file);
+
+        if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('여기에_배포한')) {
+          const target = (dashboardState.records[meal] || []).find(r => r.category === category);
+          if (target) target.appPhotoUrl = resizedBase64;
+          renderTables();
+          setBlockingModal('success', '완료되었습니다!');
+          setTimeout(() => setBlockingModal('hide'), 900);
+          return;
+        }
+
         const res = await callGasApi({
           action: 'saveAppMenu',
           date: dateStr,
           meal: meal,
           category: category,
-          menuName: menuName
+          menuName: menuName,
+          base64Data: resizedBase64
         });
 
-        const targetRow = (dashboardState.records[meal] || []).find(r => r.category === category);
-        if (targetRow) {
-          targetRow.menuName = res.menuName;
-          targetRow.appPhotoUrl = res.appPhotoUrl || localMatchedUrl;
+        const target = (dashboardState.records[meal] || []).find(r => r.category === category);
+        if (target) {
+          target.menuName = res.menuName;
+          target.appPhotoUrl = res.appPhotoUrl;
         }
 
-        const appBox = document.getElementById(`appPhotoBox_${rowKey}`);
-        if (appBox) {
-          appBox.innerHTML = renderPhotoContent(
-            res.appPhotoUrl || localMatchedUrl,
-            `${meal} [${category}] ${res.menuName} (어플 기준)`,
-            '메뉴 선택 시 어플 사진 자동 연동'
-          );
-        }
-
+        renderTables();
         setBlockingModal('success', '완료되었습니다!');
-        setTimeout(() => setBlockingModal('hide'), 950);
+        setTimeout(() => setBlockingModal('hide'), 1000);
       } catch (err) {
         setBlockingModal('hide');
-        alert('메뉴 저장 중 오류가 발생했습니다: ' + err.message);
+        alert('어플 기준 사진 업로드 실패: ' + err.message);
       }
     }
 
-    /**
-     * 사업장 사진 가로 800px 리사이징 후 GAS API 업로드
-     */
+    // 사업장(R3, R4, R5) 사진 업로드 핸들러
     async function handleFileSelect(event, meal, category, site, rowKey) {
       const file = event.target.files[0];
       if (!file) return;
 
       const dateStr = document.getElementById('datePicker').value;
       const inputEl = document.getElementById(`input_${rowKey}`);
-      const currentMenuName = inputEl ? inputEl.value.trim() : '';
+      const menuName = inputEl ? inputEl.value.trim() : '';
 
       setBlockingModal('loading', '저장중...');
-
       try {
         const resizedBase64 = await resizeImageTo800px(file);
 
         if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('여기에_배포한')) {
-          const targetRow = (dashboardState.records[meal] || []).find(r => r.category === category);
-          if (targetRow) {
-            if (site === 'R3') targetRow.r3Url = resizedBase64;
-            if (site === 'R4') targetRow.r4Url = resizedBase64;
-            if (site === 'R5') targetRow.r5Url = resizedBase64;
+          const target = (dashboardState.records[meal] || []).find(r => r.category === category);
+          if (target) {
+            if (site === 'R3') target.r3Url = resizedBase64;
+            if (site === 'R4') target.r4Url = resizedBase64;
+            if (site === 'R5') target.r5Url = resizedBase64;
           }
           renderTables();
           setBlockingModal('success', '완료되었습니다!');
@@ -566,32 +500,28 @@
           meal: meal,
           category: category,
           site: site,
-          menuName: currentMenuName || '미지정',
+          menuName: menuName || '미지정',
           base64Data: resizedBase64
         });
 
-        const targetRow = (dashboardState.records[meal] || []).find(r => r.category === category);
-        if (targetRow) {
-          if (site === 'R3') targetRow.r3Url = res.imageUrl;
-          if (site === 'R4') targetRow.r4Url = res.imageUrl;
-          if (site === 'R5') targetRow.r5Url = res.imageUrl;
+        const target = (dashboardState.records[meal] || []).find(r => r.category === category);
+        if (target) {
+          if (site === 'R3') target.r3Url = res.imageUrl;
+          if (site === 'R4') target.r4Url = res.imageUrl;
+          if (site === 'R5') target.r5Url = res.imageUrl;
         }
 
         renderTables();
         setBlockingModal('success', '완료되었습니다!');
         setTimeout(() => setBlockingModal('hide'), 1000);
-
       } catch (err) {
         setBlockingModal('hide');
-        alert('사진 업로드 실패: ' + err.message);
+        alert('업로드 실패: ' + err.message);
       } finally {
         event.target.value = '';
       }
     }
 
-    /**
-     * HTML5 Canvas 가로 800px 리사이징
-     */
     function resizeImageTo800px(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -604,14 +534,11 @@
             const height = Math.round(img.height * scaleFactor);
 
             const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-
+            canvas.width = width; canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(img, 0, 0, width, height);
-
             resolve(canvas.toDataURL('image/jpeg', 0.82));
           };
           img.onerror = () => reject(new Error('이미지 로드 실패'));
@@ -626,31 +553,20 @@
       const modal = document.getElementById('lightboxModal');
       document.getElementById('lightboxImg').src = url;
       document.getElementById('lightboxCaption').textContent = caption;
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
+      modal.classList.remove('hidden'); modal.classList.add('flex');
     }
 
     function closeLightbox() {
       const modal = document.getElementById('lightboxModal');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
+      modal.classList.add('hidden'); modal.classList.remove('flex');
       document.getElementById('lightboxImg').src = '';
     }
 
     function escapeHtml(str) {
-      return String(str || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
-
     function escapeJs(str) {
-      return String(str || '')
-        .replace(/\\/g, '\\\\')
-        .replace(/'/g, "\\'")
-        .replace(/"/g, '\\"');
+      return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
     }
   </script>
 </body>

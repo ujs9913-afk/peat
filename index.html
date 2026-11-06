@@ -4,6 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>사업장별 메뉴 사진 비교 대시보드</title>
+
+  <!-- 📱 1. 아이폰(iOS) 홈 화면 아이콘 및 전체화면(앱 모드) 설정 -->
+  <link rel="apple-touch-icon" href="icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PlanEAT"> <!-- 홈 화면 어플 이름 -->
+
+  <!-- 📱 2. 안드로이드(Chrome) 및 일반 브라우저 아이콘 설정 -->
+  <link rel="icon" type="image/png" sizes="192x192" href="icon.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Pretendard 폰트 -->
@@ -99,7 +111,9 @@
   </main>
 
   <script>
-    // [필수 입력] Apps Script 웹앱 배포 URL
+    // =========================================================================
+    // [필수 입력] Apps Script 웹앱 배포 URL을 입력하세요.
+    // =========================================================================
     const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwCMesEklXuPVC4hVTiNzqeM63G-wFxWDqCcTLq6DpnMY5A2r8qaThlIAI6gzc79jlxqg/exec';
 
     const DEFAULT_CATEGORIES = {
@@ -109,7 +123,7 @@
     };
 
     let currentMealFilter = 'ALL';
-    let currentSiteFilter = 'ALL'; // ALL, R3, R4, R5
+    let currentSiteFilter = 'ALL';
     let dashboardState = { date: '', masterList: [], records: { '아침': [], '점심': [], '저녁': [] } };
 
     const MEAL_ORDER = ['아침', '점심', '저녁'];
@@ -205,7 +219,6 @@
       const mealsToShow = currentMealFilter === 'ALL' ? MEAL_ORDER : [currentMealFilter];
       let html = '';
 
-      // 사업장 필터에 따른 너비 및 최소너비 조절
       const colClass = currentSiteFilter === 'ALL' ? 'w-1/4' : 'w-1/2';
       const minWidthClass = currentSiteFilter === 'ALL' ? 'min-w-[780px]' : 'min-w-[420px]';
 
@@ -245,7 +258,6 @@
       const datalistId = 'dl_' + row.category.replace(/[^a-zA-Z0-9가-힣]/g, '_');
       const hasAppPhoto = Boolean(row.appPhotoUrl);
       
-      // 이전 끼니 복사 버튼 조건 검사
       let prevMeal = meal === '점심' ? '아침' : (meal === '저녁' ? '점심' : null);
       let hasPrevCategory = false;
       if (prevMeal && dashboardState.records[prevMeal]) {
@@ -271,7 +283,7 @@
             <label class="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition shadow-sm ${hasAppPhoto ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-blue-600 hover:bg-blue-700 text-white'}">
               <span>업로드</span><input type="file" accept="image/*" class="hidden" onchange="handleAppFileSelect(event, '${meal}', '${escapeJs(row.category)}', '${rowKey}')" />
             </label>
-            ${hasPrevCategory ? `<button type="button" onclick="handleCopyPrevious('${meal}', '${escapeJs(row.category)}', 'APP', '${rowKey}')" class="w-full py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 transition shadow-sm tracking-tight">🔄 ${prevMeal}과 동일</button>` : ''}
+            ${hasPrevCategory ? `<button type="button" onclick="handleCopyPrevious('${meal}', '${escapeJs(row.category)}', 'APP', '${rowKey}')" class="w-full py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 transition shadow-sm tracking-tight">🔄 ${prevMeal} 복사</button>` : ''}
           </div>
         </td>`;
 
@@ -290,7 +302,7 @@
             <label class="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition shadow-sm ${hasPhoto ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-blue-600 hover:bg-blue-700 text-white'}">
               <span>업로드</span><input type="file" accept="image/*" class="hidden" onchange="handleFileSelect(event, '${meal}', '${escapeJs(row.category)}', '${site}', '${rowKey}')" />
             </label>
-            ${hasPrevCategory ? `<button type="button" onclick="handleCopyPrevious('${meal}', '${escapeJs(row.category)}', '${site}', '${rowKey}')" class="w-full py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 transition shadow-sm tracking-tight">🔄 ${prevMeal}과 동일</button>` : ''}
+            ${hasPrevCategory ? `<button type="button" onclick="handleCopyPrevious('${meal}', '${escapeJs(row.category)}', '${site}', '${rowKey}')" class="w-full py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 transition shadow-sm tracking-tight">🔄 ${prevMeal} 복사</button>` : ''}
           </div>
         </td>`;
       };
@@ -308,54 +320,33 @@
       return `<span class="text-[11px] text-slate-400 text-center px-2 leading-relaxed">${escapeHtml(emptyText)}</span>`;
     }
 
-    // 이전 끼니(아침/점심) 메뉴 복사 API 호출
     async function handleCopyPrevious(meal, category, site, rowKey) {
       const prevMeal = meal === '점심' ? '아침' : '점심';
       const prevRow = dashboardState.records[prevMeal].find(r => r.category === category);
+      if (!prevRow) { alert(`${prevMeal} 메뉴에 해당 카테고리가 없습니다.`); return; }
       
-      if (!prevRow) {
-        alert(`${prevMeal} 메뉴에 해당 카테고리가 없습니다.`); return;
-      }
+      let sourceUrl = ''; let sourceMenuName = '';
+      if (site === 'APP') { sourceUrl = prevRow.appPhotoUrl; sourceMenuName = prevRow.menuName; } 
+      else { sourceUrl = prevRow[site.toLowerCase() + 'Url']; }
+      if (!sourceUrl && site !== 'APP') { alert(`복사할 ${prevMeal} 사진이 비어있습니다.`); return; }
 
-      let sourceUrl = '';
-      let sourceMenuName = '';
-      
-      if (site === 'APP') {
-        sourceUrl = prevRow.appPhotoUrl; sourceMenuName = prevRow.menuName;
-      } else {
-        sourceUrl = prevRow[site.toLowerCase() + 'Url'];
-      }
-
-      if (!sourceUrl && site !== 'APP') {
-        alert(`복사할 ${prevMeal} 사진이 비어있습니다.`); return;
-      }
-
-      const dateStr = document.getElementById('datePicker').value;
       setBlockingModal('loading', '불러오는 중...');
-
       try {
         if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('여기에_배포한')) {
           const target = dashboardState.records[meal].find(r => r.category === category);
           if (site === 'APP') { target.appPhotoUrl = sourceUrl; target.menuName = sourceMenuName; } 
           else { target[site.toLowerCase() + 'Url'] = sourceUrl; }
-          renderTables(); setBlockingModal('success', '완료되었습니다!'); setTimeout(() => setBlockingModal('hide'), 800);
-          return;
+          renderTables(); setBlockingModal('success', '완료!'); setTimeout(() => setBlockingModal('hide'), 800); return;
         }
 
-        const res = await callGasApi({
-          action: 'copyPrevious', date: dateStr, meal: meal, category: category, site: site, sourceUrl: sourceUrl, sourceMenuName: sourceMenuName
-        });
-
+        const res = await callGasApi({ action: 'copyPrevious', date: document.getElementById('datePicker').value, meal, category, site, sourceUrl, sourceMenuName });
         const target = dashboardState.records[meal].find(r => r.category === category);
         if (site === 'APP') { target.appPhotoUrl = res.url; target.menuName = res.menuName; } 
         else { target[site.toLowerCase() + 'Url'] = res.url; }
-        
-        renderTables();
-        setBlockingModal('success', '완료되었습니다!'); setTimeout(() => setBlockingModal('hide'), 800);
+        renderTables(); setBlockingModal('success', '완료!'); setTimeout(() => setBlockingModal('hide'), 800);
       } catch (err) { setBlockingModal('hide'); alert('복사 실패: ' + err.message); }
     }
 
-    // 사진 리사이징 등 기존 핸들러
     async function handleMenuChange(meal, category, rowKey) {
       const inputEl = document.getElementById(`input_${rowKey}`);
       if (!inputEl || !GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('여기에_배포한')) return;

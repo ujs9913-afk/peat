@@ -5,13 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>사업장별 메뉴 사진 비교 대시보드</title>
 
-  <!-- 📱 1. 아이폰(iOS) 홈 화면 아이콘 및 전체화면(앱 모드) 설정 -->
+  <!-- 아이폰(iOS) 및 안드로이드 홈 화면 아이콘 설정 -->
   <link rel="apple-touch-icon" href="icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="PlanEAT"> <!-- 홈 화면 어플 이름 -->
-
-  <!-- 📱 2. 안드로이드(Chrome) 및 일반 브라우저 아이콘 설정 -->
+  <meta name="apple-mobile-web-app-title" content="PlanEAT">
   <link rel="icon" type="image/png" sizes="192x192" href="icon.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icon.png">
   <meta name="mobile-web-app-capable" content="yes">
@@ -20,6 +18,10 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Pretendard 폰트 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <!-- Cropper.js (사진 확대/자르기 라이브러리) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
   <style>
     body {
       font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -30,19 +32,39 @@
     .sticky-col-header { position: sticky; left: 0; z-index: 20; }
     .photo-box {
       aspect-ratio: 4 / 3; width: 100%;
-      background-color: #0f172a;
+      background-color: #f8fafc;
       border: 1px dashed #cbd5e1; border-radius: 0.5rem;
       overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative; outline: none;
     }
     .photo-box:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2); }
-    .photo-box img { width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; transition: transform 0.2s ease; }
-    .photo-box img:hover { transform: scale(1.03); }
+    /* 모든 사진이 4:3으로 크롭되어 올라오므로 꽉 차고 깔끔하게 표시됨 */
+    .photo-box img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; transition: transform 0.2s ease; }
+    .photo-box img:hover { transform: scale(1.02); }
     body.modal-active { overflow: hidden; user-select: none; }
+
+    /* Cropper.js 자르기 박스 내부에 '음식 용기 맞춤 가이드라인' 표시 */
+    .cropper-crop-box::after {
+      content: '이 점선 안에 용기를 꽉 맞춰주세요';
+      position: absolute;
+      inset: 7%;
+      border: 2.5px dashed rgba(250, 204, 21, 0.95);
+      border-radius: 14px;
+      pointer-events: none;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 6px;
+      color: #fef08a;
+      font-size: 11px;
+      font-weight: 800;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+      box-shadow: inset 0 0 12px rgba(0,0,0,0.25);
+    }
   </style>
 </head>
 <body class="min-h-screen pb-12">
 
-  <!-- 차단 모달 -->
+  <!-- 1. 저장중/완료 차단 모달 -->
   <div id="blockingModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-900/65 backdrop-blur-sm select-none" style="pointer-events: auto;">
     <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-xs w-full mx-4 flex flex-col items-center text-center border border-slate-100">
       <div id="modalSpinner" class="w-14 h-14 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
@@ -54,7 +76,46 @@
     </div>
   </div>
 
-  <!-- 라이트박스 -->
+  <!-- 2. 사진 가이드 맞춤 & 확대/자르기(Crop) 모달 -->
+  <div id="cropModal" class="fixed inset-0 z-[9500] hidden flex-col bg-slate-950/95 backdrop-blur-md select-none">
+    <!-- 상단 안내 헤더 -->
+    <div class="px-4 py-3 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+      <div>
+        <h3 class="text-sm sm:text-base font-extrabold flex items-center gap-2">
+          <span class="px-2 py-0.5 bg-amber-500 text-slate-950 rounded text-xs font-black">가이드 맞춤</span>
+          <span>음식 용기를 틀에 꽉 차게 맞춰주세요</span>
+        </h3>
+        <p class="text-[11px] sm:text-xs text-slate-400 mt-0.5">두 손가락(또는 마우스 휠)으로 사진을 확대하고 이동해 노란 점선에 용기를 맞춰주세요.</p>
+      </div>
+      <button type="button" onclick="closeCropModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold">취소</button>
+    </div>
+
+    <!-- 중앙 크롭 작업 영역 -->
+    <div class="flex-1 relative w-full overflow-hidden flex items-center justify-center p-2 sm:p-6">
+      <div class="w-full h-full max-w-3xl max-h-[68vh] flex items-center justify-center">
+        <img id="cropTargetImg" src="" alt="크롭 원본" class="max-w-full max-h-full block">
+      </div>
+    </div>
+
+    <!-- 하단 조작 툴바 (확대/축소/회전/초기화/저장) -->
+    <div class="px-4 py-3.5 bg-slate-900 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-1.5">
+        <button type="button" onclick="zoomCrop(0.15)" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700">➕ 확대</button>
+        <button type="button" onclick="zoomCrop(-0.15)" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700">➖ 축소</button>
+        <button type="button" onclick="rotateCrop(-90)" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700">↺ 90° 회전</button>
+        <button type="button" onclick="resetCrop()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700">초기화</button>
+      </div>
+      <div class="flex items-center gap-2 ml-auto">
+        <button type="button" onclick="closeCropModal()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs sm:text-sm font-bold">취소</button>
+        <button type="button" onclick="confirmCropAndUpload()" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-blue-600/30 flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+          <span>이대로 자르기 & 업로드</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 사진 확대 보기 라이트박스 -->
   <div id="lightboxModal" class="fixed inset-0 z-[9000] hidden items-center justify-center bg-black/80 p-4" onclick="closeLightbox()">
     <div class="max-w-3xl w-full flex flex-col items-center">
       <img id="lightboxImg" src="" alt="확대 사진" class="max-h-[80vh] w-auto rounded-lg shadow-2xl border border-white/20 object-contain">
@@ -62,6 +123,7 @@
     </div>
   </div>
 
+  <!-- 4. 상단 고정 컨트롤 바 -->
   <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
     <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3">
       <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
@@ -75,20 +137,19 @@
           <button onclick="loadDashboardData()" class="xl:hidden px-3 py-1.5 text-xs font-semibold bg-slate-100 border border-slate-300 rounded-lg">새로고침</button>
         </div>
 
-        <!-- 필터 그룹 -->
         <div class="flex flex-wrap items-center gap-2 sm:gap-3">
           <input type="date" id="datePicker" onchange="loadDashboardData()" class="px-2.5 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none cursor-pointer">
           
-          <!-- 사업장 필터 -->
+          <!-- 사업장 선택 탭 -->
           <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200 items-center">
             <span class="text-[11px] font-bold text-slate-400 px-2">사업장</span>
-            <button type="button" onclick="setSiteFilter('ALL')" id="site_ALL" class="site-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md bg-slate-800 text-white shadow-sm transition">전체</button>
+            <button type="button" onclick="setSiteFilter('ALL')" id="site_ALL" class="site-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md bg-slate-800 text-white shadow-sm transition">전체사업장</button>
             <button type="button" onclick="setSiteFilter('R3')" id="site_R3" class="site-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">R3</button>
             <button type="button" onclick="setSiteFilter('R4')" id="site_R4" class="site-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">R4</button>
             <button type="button" onclick="setSiteFilter('R5')" id="site_R5" class="site-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">R5</button>
           </div>
 
-          <!-- 끼니 필터 -->
+          <!-- 끼니 선택 탭 -->
           <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200 items-center">
             <span class="text-[11px] font-bold text-slate-400 px-2">끼니</span>
             <button type="button" onclick="setMealFilter('ALL')" id="tab_ALL" class="meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md bg-blue-600 text-white shadow-sm transition">전체</button>
@@ -125,6 +186,10 @@
     let currentMealFilter = 'ALL';
     let currentSiteFilter = 'ALL';
     let dashboardState = { date: '', masterList: [], records: { '아침': [], '점심': [], '저녁': [] } };
+
+    // Cropper 인스턴스 및 현재 작업중인 셀 컨텍스트
+    let cropperInstance = null;
+    let pendingCropContext = null; // { meal, category, site, rowKey }
 
     const MEAL_ORDER = ['아침', '점심', '저녁'];
     const MEAL_BADGE_STYLES = { '아침': 'bg-amber-500 text-white', '점심': 'bg-emerald-600 text-white', '저녁': 'bg-indigo-600 text-white' };
@@ -283,7 +348,7 @@
             <label class="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition shadow-sm ${hasAppPhoto ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-blue-600 hover:bg-blue-700 text-white'}">
               <span>업로드</span><input type="file" accept="image/*" class="hidden" onchange="handleAppFileSelect(event, '${meal}', '${escapeJs(row.category)}', '${rowKey}')" />
             </label>
-            ${hasPrevCategory ? `<button type="button" onclick="handleCopyPrevious('${meal}', '${escapeJs(row.category)}', 'APP', '${rowKey}')" class="w-full py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 transition shadow-sm tracking-tight">🔄 ${prevMeal} 복사</button>` : ''}
+            ${hasPrevCategory ? `<button type="button" onclick="handleCopyPrevious('${meal}', '${escapeJs(row.category)}', 'APP', '${rowKey}')" class="w-full py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 transition shadow-sm tracking-tight">${prevMeal}메뉴와 동일</button>` : ''}
           </div>
         </td>`;
 
@@ -302,7 +367,7 @@
             <label class="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition shadow-sm ${hasPhoto ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-blue-600 hover:bg-blue-700 text-white'}">
               <span>업로드</span><input type="file" accept="image/*" class="hidden" onchange="handleFileSelect(event, '${meal}', '${escapeJs(row.category)}', '${site}', '${rowKey}')" />
             </label>
-            ${hasPrevCategory ? `<button type="button" onclick="handleCopyPrevious('${meal}', '${escapeJs(row.category)}', '${site}', '${rowKey}')" class="w-full py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 transition shadow-sm tracking-tight">🔄 ${prevMeal} 복사</button>` : ''}
+            ${hasPrevCategory ? `<button type="button" onclick="handleCopyPrevious('${meal}', '${escapeJs(row.category)}', '${site}', '${rowKey}')" class="w-full py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 transition shadow-sm tracking-tight">${prevMeal}메뉴와 동일</button>` : ''}
           </div>
         </td>`;
       };
@@ -320,6 +385,165 @@
       return `<span class="text-[11px] text-slate-400 text-center px-2 leading-relaxed">${escapeHtml(emptyText)}</span>`;
     }
 
+    // =========================================================================
+    // [핵심] 사진 선택 시 4:3 가이드라인 크롭 모달 오픈 및 조작
+    // =========================================================================
+    function openCropModalWithFile(file, context) {
+      pendingCropContext = context;
+      const reader = new FileReader();
+      reader.onload = e => {
+        const modal = document.getElementById('cropModal');
+        const imgEl = document.getElementById('cropTargetImg');
+
+        if (cropperInstance) {
+          cropperInstance.destroy();
+          cropperInstance = null;
+        }
+
+        imgEl.src = e.target.result;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.classList.add('modal-active');
+
+        imgEl.onload = () => {
+          if (cropperInstance) cropperInstance.destroy();
+          cropperInstance = new Cropper(imgEl, {
+            aspectRatio: 4 / 3,        // 4:3 가로 비율 강제 고정
+            viewMode: 1,               // 사진 바깥 여백이 생기지 않도록 제한
+            dragMode: 'move',          // 사진을 손가락으로 드래그해 위치 맞춤
+            autoCropArea: 0.92,
+            restore: false,
+            guides: true,
+            center: true,
+            highlight: false,
+            cropBoxMovable: true,
+            cropBoxResizable: true,
+            toggleDragModeOnDblclick: false
+          });
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function zoomCrop(ratio) {
+      if (cropperInstance) cropperInstance.zoom(ratio);
+    }
+
+    function rotateCrop(deg) {
+      if (cropperInstance) cropperInstance.rotate(deg);
+    }
+
+    function resetCrop() {
+      if (cropperInstance) cropperInstance.reset();
+    }
+
+    function closeCropModal() {
+      const modal = document.getElementById('cropModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      document.body.classList.remove('modal-active');
+      if (cropperInstance) {
+        cropperInstance.destroy();
+        cropperInstance = null;
+      }
+      pendingCropContext = null;
+    }
+
+    // [이대로 자르기 & 업로드] 버튼 클릭 시 800x600px로 추출 후 서버 전송
+    async function confirmCropAndUpload() {
+      if (!cropperInstance || !pendingCropContext) return;
+
+      const { meal, category, site, rowKey } = pendingCropContext;
+      const canvas = cropperInstance.getCroppedCanvas({
+        width: 800,
+        height: 600,
+        fillColor: '#ffffff',
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high'
+      });
+
+      const croppedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+      closeCropModal();
+
+      const dateStr = document.getElementById('datePicker').value;
+      const inputEl = document.getElementById(`input_${rowKey}`);
+      const menuName = inputEl ? inputEl.value.trim() : '';
+
+      setBlockingModal('loading', '저장중...');
+
+      try {
+        if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('여기에_배포한')) {
+          const target = dashboardState.records[meal].find(r => r.category === category);
+          if (site === 'APP') target.appPhotoUrl = croppedBase64;
+          else target[site.toLowerCase() + 'Url'] = croppedBase64;
+          renderTables();
+          setBlockingModal('success', '완료되었습니다!');
+          setTimeout(() => setBlockingModal('hide'), 800);
+          return;
+        }
+
+        if (site === 'APP') {
+          const res = await callGasApi({
+            action: 'saveAppMenu',
+            date: dateStr,
+            meal: meal,
+            category: category,
+            menuName: menuName,
+            base64Data: croppedBase64
+          });
+          const target = dashboardState.records[meal].find(r => r.category === category);
+          target.menuName = res.menuName;
+          target.appPhotoUrl = res.appPhotoUrl;
+        } else {
+          const res = await callGasApi({
+            action: 'uploadSitePhoto',
+            date: dateStr,
+            meal: meal,
+            category: category,
+            site: site,
+            menuName: menuName || '미지정',
+            base64Data: croppedBase64
+          });
+          const target = dashboardState.records[meal].find(r => r.category === category);
+          target[site.toLowerCase() + 'Url'] = res.imageUrl;
+        }
+
+        renderTables();
+        setBlockingModal('success', '완료되었습니다!');
+        setTimeout(() => setBlockingModal('hide'), 900);
+      } catch (err) {
+        setBlockingModal('hide');
+        alert('업로드 실패: ' + err.message);
+      }
+    }
+
+    // 파일 선택 & 붙여넣기 이벤트 -> 크롭 모달로 연결
+    function handleAppFileSelect(event, meal, category, rowKey) {
+      const file = event.target.files[0];
+      if (!file) return;
+      openCropModalWithFile(file, { meal, category, site: 'APP', rowKey });
+      event.target.value = '';
+    }
+
+    function handlePastePhoto(event, meal, category, rowKey) {
+      const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+      for (let item of items) {
+        if (item.type.indexOf('image') === 0) {
+          event.preventDefault();
+          openCropModalWithFile(item.getAsFile(), { meal, category, site: 'APP', rowKey });
+          break;
+        }
+      }
+    }
+
+    function handleFileSelect(event, meal, category, site, rowKey) {
+      const file = event.target.files[0];
+      if (!file) return;
+      openCropModalWithFile(file, { meal, category, site, rowKey });
+      event.target.value = '';
+    }
+
+    // 이전 끼니(아침/점심) 동일 메뉴 복사
     async function handleCopyPrevious(meal, category, site, rowKey) {
       const prevMeal = meal === '점심' ? '아침' : '점심';
       const prevRow = dashboardState.records[prevMeal].find(r => r.category === category);
@@ -330,20 +554,20 @@
       else { sourceUrl = prevRow[site.toLowerCase() + 'Url']; }
       if (!sourceUrl && site !== 'APP') { alert(`복사할 ${prevMeal} 사진이 비어있습니다.`); return; }
 
-      setBlockingModal('loading', '불러오는 중...');
+      setBlockingModal('loading', '저장중...');
       try {
         if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('여기에_배포한')) {
           const target = dashboardState.records[meal].find(r => r.category === category);
           if (site === 'APP') { target.appPhotoUrl = sourceUrl; target.menuName = sourceMenuName; } 
           else { target[site.toLowerCase() + 'Url'] = sourceUrl; }
-          renderTables(); setBlockingModal('success', '완료!'); setTimeout(() => setBlockingModal('hide'), 800); return;
+          renderTables(); setBlockingModal('success', '완료되었습니다!'); setTimeout(() => setBlockingModal('hide'), 800); return;
         }
 
         const res = await callGasApi({ action: 'copyPrevious', date: document.getElementById('datePicker').value, meal, category, site, sourceUrl, sourceMenuName });
         const target = dashboardState.records[meal].find(r => r.category === category);
         if (site === 'APP') { target.appPhotoUrl = res.url; target.menuName = res.menuName; } 
         else { target[site.toLowerCase() + 'Url'] = res.url; }
-        renderTables(); setBlockingModal('success', '완료!'); setTimeout(() => setBlockingModal('hide'), 800);
+        renderTables(); setBlockingModal('success', '완료되었습니다!'); setTimeout(() => setBlockingModal('hide'), 800);
       } catch (err) { setBlockingModal('hide'); alert('복사 실패: ' + err.message); }
     }
 
@@ -353,66 +577,8 @@
       setBlockingModal('loading', '저장중...');
       try {
         await callGasApi({ action: 'saveAppMenu', date: document.getElementById('datePicker').value, meal, category, menuName: inputEl.value.trim() });
-        setBlockingModal('success', '완료!'); setTimeout(() => setBlockingModal('hide'), 800);
+        setBlockingModal('success', '완료되었습니다!'); setTimeout(() => setBlockingModal('hide'), 800);
       } catch (err) { setBlockingModal('hide'); alert('저장 실패: ' + err.message); }
-    }
-
-    async function processAppPhotoUpload(file, meal, category, rowKey) {
-      const dateStr = document.getElementById('datePicker').value;
-      const inputEl = document.getElementById(`input_${rowKey}`);
-      setBlockingModal('loading', '저장중...');
-      try {
-        const resizedBase64 = await resizeImageTo800px(file);
-        if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('여기에_배포한')) {
-          dashboardState.records[meal].find(r => r.category === category).appPhotoUrl = resizedBase64;
-          renderTables(); setBlockingModal('success', '완료!'); setTimeout(() => setBlockingModal('hide'), 800); return;
-        }
-        const res = await callGasApi({ action: 'saveAppMenu', date: dateStr, meal, category, menuName: inputEl ? inputEl.value.trim() : '', base64Data: resizedBase64 });
-        const target = dashboardState.records[meal].find(r => r.category === category);
-        target.menuName = res.menuName; target.appPhotoUrl = res.appPhotoUrl;
-        renderTables(); setBlockingModal('success', '완료!'); setTimeout(() => setBlockingModal('hide'), 800);
-      } catch (err) { setBlockingModal('hide'); alert('업로드 실패: ' + err.message); }
-    }
-
-    async function handleAppFileSelect(event, meal, category, rowKey) {
-      if (event.target.files[0]) { await processAppPhotoUpload(event.target.files[0], meal, category, rowKey); event.target.value = ''; }
-    }
-    async function handlePastePhoto(event, meal, category, rowKey) {
-      const items = (event.clipboardData || event.originalEvent.clipboardData).items;
-      for (let item of items) { if (item.type.indexOf('image') === 0) { event.preventDefault(); await processAppPhotoUpload(item.getAsFile(), meal, category, rowKey); break; } }
-    }
-    async function handleFileSelect(event, meal, category, site, rowKey) {
-      const file = event.target.files[0]; if (!file) return;
-      setBlockingModal('loading', '저장중...');
-      try {
-        const resizedBase64 = await resizeImageTo800px(file);
-        if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('여기에_배포한')) {
-          dashboardState.records[meal].find(r => r.category === category)[site.toLowerCase() + 'Url'] = resizedBase64;
-          renderTables(); setBlockingModal('success', '완료!'); setTimeout(() => setBlockingModal('hide'), 800); return;
-        }
-        const inputEl = document.getElementById(`input_${rowKey}`);
-        const res = await callGasApi({ action: 'uploadSitePhoto', date: document.getElementById('datePicker').value, meal, category, site, menuName: inputEl ? inputEl.value.trim() : '', base64Data: resizedBase64 });
-        dashboardState.records[meal].find(r => r.category === category)[site.toLowerCase() + 'Url'] = res.imageUrl;
-        renderTables(); setBlockingModal('success', '완료!'); setTimeout(() => setBlockingModal('hide'), 800);
-      } catch (err) { setBlockingModal('hide'); alert('업로드 실패: ' + err.message); } finally { event.target.value = ''; }
-    }
-
-    function resizeImageTo800px(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = 800; canvas.height = Math.round(img.height * (800 / img.width));
-            const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL('image/jpeg', 0.82));
-          };
-          img.onerror = () => reject(new Error('이미지 로드 실패')); img.src = e.target.result;
-        };
-        reader.onerror = () => reject(new Error('파일 읽기 실패')); reader.readAsDataURL(file);
-      });
     }
 
     function openLightbox(url, caption) {

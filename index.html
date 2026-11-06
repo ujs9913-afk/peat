@@ -21,6 +21,8 @@
   <!-- Cropper.js (사진 확대/자르기 라이브러리) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+  <!-- ExcelJS (엑셀 셀 내부에 실제 사진을 삽입하기 위한 라이브러리) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 
   <style>
     body {
@@ -44,7 +46,6 @@
       outline: none;
     }
     .photo-box:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2); }
-    /* 4:3은 꽉 차게 보이고, 1:1 정사각형 사진도 위아래 잘림 없이 100% 다 보이도록 contain 적용 */
     .photo-box img {
       width: 100%;
       height: 100%;
@@ -74,12 +75,28 @@
       text-shadow: 0 1px 3px rgba(0,0,0,0.9);
       box-shadow: inset 0 0 12px rgba(0,0,0,0.25);
     }
+
+    /* 📄 PDF 인쇄/저장 전용 최적화 스타일 */
+    @media print {
+      @page { size: A4 landscape; margin: 8mm; }
+      body { background-color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      header, .no-print { display: none !important; }
+      main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+      .overflow-x-auto { overflow: visible !important; }
+      table { min-width: 100% !important; width: 100% !important; page-break-inside: auto; }
+      tr { page-break-inside: avoid; page-break-after: auto; }
+      section { page-break-after: always; border: 1px solid #cbd5e1 !important; box-shadow: none !important; margin-bottom: 12px !important; }
+      section:last-child { page-break-after: auto; }
+      .sticky-col, .sticky-col-header { position: static !important; }
+      .photo-box { border: 1px solid #e2e8f0 !important; aspect-ratio: 4 / 3; max-height: 150px; }
+      input { border: none !important; padding: 0 !important; font-weight: 800 !important; background: transparent !important; }
+    }
   </style>
 </head>
 <body class="min-h-screen pb-12">
 
   <!-- 1. 저장중/완료 차단 모달 -->
-  <div id="blockingModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-900/65 backdrop-blur-sm select-none" style="pointer-events: auto;">
+  <div id="blockingModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-900/65 backdrop-blur-sm select-none no-print" style="pointer-events: auto;">
     <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-xs w-full mx-4 flex flex-col items-center text-center border border-slate-100">
       <div id="modalSpinner" class="w-14 h-14 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
       <div id="modalCheck" class="hidden w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full items-center justify-center mb-4">
@@ -91,8 +108,7 @@
   </div>
 
   <!-- 2. 사진 가이드 맞춤 & 비율 선택(4:3 / 1:1) 자르기(Crop) 모달 -->
-  <div id="cropModal" class="fixed inset-0 z-[9500] hidden flex-col bg-slate-950/95 backdrop-blur-md select-none">
-    <!-- 상단 안내 헤더 및 비율 선택 탭 -->
+  <div id="cropModal" class="fixed inset-0 z-[9500] hidden flex-col bg-slate-950/95 backdrop-blur-md select-none no-print">
     <div class="px-4 py-3 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-2 border-b border-slate-800">
       <div>
         <h3 class="text-sm sm:text-base font-extrabold flex items-center gap-2">
@@ -102,7 +118,6 @@
         <p class="text-[11px] sm:text-xs text-slate-400 mt-0.5">기본은 4:3 비율이며, 정사각형 용기는 1:1 비율을 선택해 주세요.</p>
       </div>
 
-      <!-- 비율 선택 버튼 (4:3 기본 / 1:1 선택 가능) -->
       <div class="flex items-center gap-2 ml-auto">
         <div class="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
           <button type="button" id="ratioBtn_4_3" onclick="setCropAspectRatio('4:3')" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-blue-600 text-white shadow transition">
@@ -116,14 +131,12 @@
       </div>
     </div>
 
-    <!-- 중앙 크롭 작업 영역 -->
     <div class="flex-1 relative w-full overflow-hidden flex items-center justify-center p-2 sm:p-6">
       <div class="w-full h-full max-w-3xl max-h-[66vh] flex items-center justify-center">
         <img id="cropTargetImg" src="" alt="크롭 원본" class="max-w-full max-h-full block">
       </div>
     </div>
 
-    <!-- 하단 조작 툴바 (확대/축소/회전/초기화/저장) -->
     <div class="px-4 py-3.5 bg-slate-900 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
       <div class="flex items-center gap-1.5">
         <button type="button" onclick="zoomCrop(0.15)" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700">➕ 확대</button>
@@ -142,7 +155,7 @@
   </div>
 
   <!-- 3. 사진 확대 보기 라이트박스 -->
-  <div id="lightboxModal" class="fixed inset-0 z-[9000] hidden items-center justify-center bg-black/80 p-4" onclick="closeLightbox()">
+  <div id="lightboxModal" class="fixed inset-0 z-[9000] hidden items-center justify-center bg-black/80 p-4 no-print" onclick="closeLightbox()">
     <div class="max-w-3xl w-full flex flex-col items-center">
       <img id="lightboxImg" src="" alt="확대 사진" class="max-h-[80vh] w-auto rounded-lg shadow-2xl border border-white/20 object-contain">
       <p id="lightboxCaption" class="text-white text-sm font-medium mt-3 bg-black/50 px-4 py-1.5 rounded-full"></p>
@@ -150,7 +163,7 @@
   </div>
 
   <!-- 4. 상단 고정 컨트롤 바 -->
-  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm no-print">
     <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3">
       <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
         
@@ -163,25 +176,35 @@
           <button onclick="loadDashboardData()" class="xl:hidden px-3 py-1.5 text-xs font-semibold bg-slate-100 border border-slate-300 rounded-lg">새로고침</button>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div class="flex flex-wrap items-center gap-2 sm:gap-2.5">
           <input type="date" id="datePicker" onchange="loadDashboardData()" class="px-2.5 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none cursor-pointer">
           
           <!-- 사업장 선택 탭 -->
           <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200 items-center">
             <span class="text-[11px] font-bold text-slate-400 px-2">사업장</span>
-            <button type="button" onclick="setSiteFilter('ALL')" id="site_ALL" class="site-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md bg-slate-800 text-white shadow-sm transition">전체사업장</button>
-            <button type="button" onclick="setSiteFilter('R3')" id="site_R3" class="site-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">R3</button>
-            <button type="button" onclick="setSiteFilter('R4')" id="site_R4" class="site-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">R4</button>
-            <button type="button" onclick="setSiteFilter('R5')" id="site_R5" class="site-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">R5</button>
+            <button type="button" onclick="setSiteFilter('ALL')" id="site_ALL" class="site-tab px-2.5 py-1 text-xs font-bold rounded-md bg-slate-800 text-white shadow-sm transition">전체사업장</button>
+            <button type="button" onclick="setSiteFilter('R3')" id="site_R3" class="site-tab px-2.5 py-1 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition">R3</button>
+            <button type="button" onclick="setSiteFilter('R4')" id="site_R4" class="site-tab px-2.5 py-1 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition">R4</button>
+            <button type="button" onclick="setSiteFilter('R5')" id="site_R5" class="site-tab px-2.5 py-1 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition">R5</button>
           </div>
 
           <!-- 끼니 선택 탭 -->
           <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200 items-center">
             <span class="text-[11px] font-bold text-slate-400 px-2">끼니</span>
-            <button type="button" onclick="setMealFilter('ALL')" id="tab_ALL" class="meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md bg-blue-600 text-white shadow-sm transition">전체</button>
-            <button type="button" onclick="setMealFilter('아침')" id="tab_아침" class="meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">아침</button>
-            <button type="button" onclick="setMealFilter('점심')" id="tab_점심" class="meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">점심</button>
-            <button type="button" onclick="setMealFilter('저녁')" id="tab_저녁" class="meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition">저녁</button>
+            <button type="button" onclick="setMealFilter('ALL')" id="tab_ALL" class="meal-tab px-2.5 py-1 text-xs font-bold rounded-md bg-blue-600 text-white shadow-sm transition">전체</button>
+            <button type="button" onclick="setMealFilter('아침')" id="tab_아침" class="meal-tab px-2.5 py-1 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition">아침</button>
+            <button type="button" onclick="setMealFilter('점심')" id="tab_점심" class="meal-tab px-2.5 py-1 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition">점심</button>
+            <button type="button" onclick="setMealFilter('저녁')" id="tab_저녁" class="meal-tab px-2.5 py-1 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition">저녁</button>
+          </div>
+
+          <!-- 📄 PDF & 📊 엑셀(XLSX) 다운로드 버튼 -->
+          <div class="flex items-center gap-1.5 ml-auto sm:ml-0">
+            <button type="button" onclick="downloadAsPdf()" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold shadow-sm transition flex items-center gap-1">
+              <span>📄 PDF 저장</span>
+            </button>
+            <button type="button" onclick="downloadAsExcel()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-sm transition flex items-center gap-1">
+              <span>📊 엑셀 다운로드</span>
+            </button>
           </div>
         </div>
 
@@ -190,10 +213,10 @@
   </header>
 
   <main class="max-w-7xl mx-auto px-2 sm:px-6 pt-4 space-y-6">
-    <div id="apiWarningBanner" class="hidden bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-xl text-xs sm:text-sm font-medium">
+    <div id="apiWarningBanner" class="hidden bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-xl text-xs sm:text-sm font-medium no-print">
       ⚠️ <strong>연동 설정 안내:</strong> <code>index.html</code> 하단의 <code>GAS_WEB_APP_URL</code> 변수에 Apps Script 웹앱 배포 URL을 입력해 주세요.
     </div>
-    <div id="datalistContainer"></div>
+    <div id="datalistContainer" class="no-print"></div>
     <div id="tablesContainer" class="space-y-8"></div>
   </main>
 
@@ -213,10 +236,9 @@
     let currentSiteFilter = 'ALL';
     let dashboardState = { date: '', masterList: [], records: { '아침': [], '점심': [], '저녁': [] } };
 
-    // Cropper 인스턴스, 현재 선택된 비율('4:3' | '1:1'), 작업중인 셀 정보
     let cropperInstance = null;
-    let currentCropRatioMode = '4:3'; // 기본값 무조건 4:3
-    let pendingCropContext = null;    // { meal, category, site, rowKey }
+    let currentCropRatioMode = '4:3';
+    let pendingCropContext = null;
 
     const MEAL_ORDER = ['아침', '점심', '저녁'];
     const MEAL_BADGE_STYLES = { '아침': 'bg-amber-500 text-white', '점심': 'bg-emerald-600 text-white', '저녁': 'bg-indigo-600 text-white' };
@@ -256,15 +278,15 @@
 
     function setMealFilter(filter) {
       currentMealFilter = filter;
-      document.querySelectorAll('.meal-tab').forEach(btn => btn.className = 'meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition');
-      document.getElementById(`tab_${filter}`).className = 'meal-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md bg-blue-600 text-white shadow-sm transition';
+      document.querySelectorAll('.meal-tab').forEach(btn => btn.className = 'meal-tab px-2.5 py-1 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition');
+      document.getElementById(`tab_${filter}`).className = 'meal-tab px-2.5 py-1 text-xs font-bold rounded-md bg-blue-600 text-white shadow-sm transition';
       renderTables();
     }
 
     function setSiteFilter(filter) {
       currentSiteFilter = filter;
-      document.querySelectorAll('.site-tab').forEach(btn => btn.className = 'site-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md text-slate-600 hover:text-slate-900 transition');
-      document.getElementById(`site_${filter}`).className = 'site-tab px-3 py-1 text-xs sm:text-sm font-bold rounded-md bg-slate-800 text-white shadow-sm transition';
+      document.querySelectorAll('.site-tab').forEach(btn => btn.className = 'site-tab px-2.5 py-1 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition');
+      document.getElementById(`site_${filter}`).className = 'site-tab px-2.5 py-1 text-xs font-bold rounded-md bg-slate-800 text-white shadow-sm transition';
       renderTables();
     }
 
@@ -371,7 +393,7 @@
           <div class="photo-box mb-2" id="appPhotoBox_${rowKey}" tabindex="0" onpaste="handlePastePhoto(event, '${meal}', '${escapeJs(row.category)}', '${rowKey}')" title="마우스 클릭 후 Ctrl+V로 복사한 이미지를 붙여넣을 수 있습니다">
             ${renderPhotoContent(row.appPhotoUrl, `${meal} [${row.category}] 어플 기준`, '사진 업로드 또는 Ctrl+V')}
           </div>
-          <div class="${gridClass} w-full">
+          <div class="${gridClass} w-full no-print">
             <label class="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition shadow-sm ${hasAppPhoto ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-blue-600 hover:bg-blue-700 text-white'}">
               <span>업로드</span><input type="file" accept="image/*" class="hidden" onchange="handleAppFileSelect(event, '${meal}', '${escapeJs(row.category)}', '${rowKey}')" />
             </label>
@@ -390,7 +412,7 @@
           <div class="photo-box mb-2">
             ${renderPhotoContent(photoUrl, `${meal} [${row.category}] ${site} 실물`, `${site} 사진 업로드`)}
           </div>
-          <div class="${gridClass} w-full">
+          <div class="${gridClass} w-full no-print">
             <label class="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition shadow-sm ${hasPhoto ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-blue-600 hover:bg-blue-700 text-white'}">
               <span>업로드</span><input type="file" accept="image/*" class="hidden" onchange="handleFileSelect(event, '${meal}', '${escapeJs(row.category)}', '${site}', '${rowKey}')" />
             </label>
@@ -413,7 +435,152 @@
     }
 
     // =========================================================================
-    // [핵심] 사진 업로드 시 기본 4:3 비율로 크롭 모달 오픈 + 1:1 비율 전환 지원
+    // [기능 1] 📄 PDF 파일 다운로드 (A4 가로형 보고서 레이아웃 인쇄/저장)
+    // =========================================================================
+    function downloadAsPdf() {
+      window.print();
+    }
+
+    // =========================================================================
+    // [기능 2] 📊 엑셀(.xlsx) 다운로드 (셀 내부에 실제 이미지 삽입)
+    // =========================================================================
+    async function downloadAsExcel() {
+      const dateStr = dashboardState.date || document.getElementById('datePicker').value;
+      const mealsToExport = currentMealFilter === 'ALL' ? MEAL_ORDER : [currentMealFilter];
+      const sitesToExport = currentSiteFilter === 'ALL' ? ['R3', 'R4', 'R5'] : [currentSiteFilter];
+
+      setBlockingModal('loading', '엑셀 파일 생성중...');
+
+      try {
+        // 1. 현재 화면에 표시된 모든 이미지 URL 수집
+        const urlSet = new Set();
+        mealsToExport.forEach(meal => {
+          (dashboardState.records[meal] || []).forEach(r => {
+            if (r.appPhotoUrl && !r.appPhotoUrl.startsWith('data:')) urlSet.add(r.appPhotoUrl);
+            sitesToExport.forEach(site => {
+              const sUrl = r[site.toLowerCase() + 'Url'];
+              if (sUrl && !sUrl.startsWith('data:')) urlSet.add(sUrl);
+            });
+          });
+        });
+
+        // 2. GAS 서버를 통해 구글 드라이브 이미지들을 Base64로 일괄 변환 (CORS 우회)
+        let base64Map = {};
+        if (urlSet.size > 0 && GAS_WEB_APP_URL && !GAS_WEB_APP_URL.includes('여기에_배포한')) {
+          try {
+            const res = await callGasApi({
+              action: 'getImagesAsBase64',
+              urls: Array.from(urlSet)
+            });
+            base64Map = res.map || {};
+          } catch (e) {
+            console.warn('서버 이미지 변환 실패 (링크만 기록됩니다):', e);
+          }
+        }
+
+        // 3. ExcelJS 워크북 생성
+        const workbook = new ExcelJS.Workbook();
+
+        for (const meal of mealsToExport) {
+          const rows = dashboardState.records[meal] || [];
+          const sheet = workbook.addWorksheet(`${dateStr}_${meal}`);
+
+          // 컬럼 정의: 구분 | 메뉴명 | PlanEAT 어플 | (R3, R4, R5)
+          const columns = [
+            { header: '구분', key: 'category', width: 16 },
+            { header: '메뉴명', key: 'menuName', width: 24 },
+            { header: 'PlanEAT 어플', key: 'appPhoto', width: 26 }
+          ];
+          sitesToExport.forEach(site => {
+            columns.push({ header: site, key: site, width: 26 });
+          });
+          sheet.columns = columns;
+
+          // 헤더 디자인
+          const headerRow = sheet.getRow(1);
+          headerRow.height = 28;
+          headerRow.eachCell(cell => {
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+          });
+
+          // 각 메뉴 행 및 사진 삽입
+          for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            const excelRowIdx = i + 2;
+            const rowValues = {
+              category: r.category,
+              menuName: r.menuName || ''
+            };
+            const excelRow = sheet.addRow(rowValues);
+            excelRow.height = 115; // 사진이 들어갈 충분한 행 높이 확보
+
+            excelRow.eachCell({ includeEmpty: true }, cell => {
+              cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+              cell.border = {
+                top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+              };
+            });
+
+            // 셀에 이미지 삽입 헬퍼 (colZeroIndexed: 2=PlanEAT 어플, 3=첫 사업장...)
+            const insertPhotoToCell = (rawUrl, colZeroIndexed) => {
+              if (!rawUrl) return;
+              const b64 = rawUrl.startsWith('data:') ? rawUrl : base64Map[rawUrl];
+              if (b64) {
+                const imgId = workbook.addImage({
+                  base64: b64,
+                  extension: 'jpeg'
+                });
+                sheet.addImage(imgId, {
+                  tl: { col: colZeroIndexed + 0.08, row: excelRowIdx - 1 + 0.06 },
+                  ext: { width: 165, height: 130 }
+                });
+              } else {
+                excelRow.getCell(colZeroIndexed + 1).value = rawUrl;
+              }
+            };
+
+            // 1열(PlanEAT 어플) 사진 삽입
+            insertPhotoToCell(r.appPhotoUrl, 2);
+
+            // 선택된 사업장(R3, R4, R5) 사진 삽입
+            sitesToExport.forEach((site, sIdx) => {
+              const sUrl = r[site.toLowerCase() + 'Url'];
+              insertPhotoToCell(sUrl, 3 + sIdx);
+            });
+          }
+        }
+
+        // 4. 파일 다운로드 트리거
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `PlanEAT_메뉴비교_${dateStr}_${currentSiteFilter}_${currentMealFilter}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setBlockingModal('success', '완료되었습니다!');
+        setTimeout(() => setBlockingModal('hide'), 900);
+      } catch (err) {
+        setBlockingModal('hide');
+        alert('엑셀 파일 생성 중 오류가 발생했습니다: ' + err.message);
+      }
+    }
+
+    // =========================================================================
+    // [기존 기능] 사진 4:3(기본) / 1:1 비율 선택 자르기 및 업로드
     // =========================================================================
     function updateRatioButtonUI(mode) {
       const btn43 = document.getElementById('ratioBtn_4_3');
@@ -437,7 +604,6 @@
 
     function openCropModalWithFile(file, context) {
       pendingCropContext = context;
-      // 업로드할 때마다 기본값은 무조건 4:3으로 초기화
       currentCropRatioMode = '4:3';
       updateRatioButtonUI('4:3');
 
@@ -459,8 +625,8 @@
         imgEl.onload = () => {
           if (cropperInstance) cropperInstance.destroy();
           cropperInstance = new Cropper(imgEl, {
-            aspectRatio: 4 / 3,        // 기본 4:3 가로 비율로 시작
-            viewMode: 1,               // 사진 바깥 여백 방지
+            aspectRatio: 4 / 3,
+            viewMode: 1,
             dragMode: 'move',
             autoCropArea: 0.92,
             restore: false,
@@ -476,18 +642,12 @@
       reader.readAsDataURL(file);
     }
 
-    function zoomCrop(ratio) {
-      if (cropperInstance) cropperInstance.zoom(ratio);
-    }
-
-    function rotateCrop(deg) {
-      if (cropperInstance) cropperInstance.rotate(deg);
-    }
-
+    function zoomCrop(ratio) { if (cropperInstance) cropperInstance.zoom(ratio); }
+    function rotateCrop(deg) { if (cropperInstance) cropperInstance.rotate(deg); }
     function resetCrop() {
       if (cropperInstance) {
         cropperInstance.reset();
-        setCropAspectRatio('4:3'); // 초기화 시에도 기본 4:3으로 복귀
+        setCropAspectRatio('4:3');
       }
     }
 
@@ -503,7 +663,6 @@
       pendingCropContext = null;
     }
 
-    // [이대로 자르기 & 업로드] 클릭 시 선택된 비율(4:3 -> 800x600 / 1:1 -> 800x800)로 추출하여 저장
     async function confirmCropAndUpload() {
       if (!cropperInstance || !pendingCropContext) return;
 
@@ -574,7 +733,6 @@
       }
     }
 
-    // 파일 선택 & 붙여넣기 이벤트 -> 크롭 모달로 연결
     function handleAppFileSelect(event, meal, category, rowKey) {
       const file = event.target.files[0];
       if (!file) return;
@@ -600,7 +758,6 @@
       event.target.value = '';
     }
 
-    // 이전 끼니(아침/점심) 동일 메뉴 복사
     async function handleCopyPrevious(meal, category, site, rowKey) {
       const prevMeal = meal === '점심' ? '아침' : '점심';
       const prevRow = dashboardState.records[prevMeal].find(r => r.category === category);
